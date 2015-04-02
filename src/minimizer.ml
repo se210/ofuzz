@@ -82,6 +82,10 @@ let not_null argname = function
   | "" -> error_exit (Printf.sprintf "%s should be given." argname)
   | arg -> arg
 
+let to_abs_if_not_null = function
+  | "" -> ""
+  | arg -> to_abs arg
+
 let opt_init () =
   let myformatter =
     Formatter.indented_formatter ~max_help_position:50 ~width:100
@@ -140,7 +144,7 @@ let opt_init () =
     working_dir = get_working_dir ();
     gui = get_gui ();
     exec_timeout = get_exec_timeout ();
-    stat_interface = get_stat_interface () |> to_abs;
+    stat_interface = get_stat_interface () |> to_abs_if_not_null;
   }
 
 let sanitize_knobs knobs =
@@ -189,6 +193,11 @@ let shutdown_msg_pipe () =
   | None -> ()
   | Some fd -> try Unix.shutdown fd Unix.SHUTDOWN_ALL with _ -> ()
 
+let outmsg knobs (fmt: ('a, unit, string, unit) format4) =
+  Printf.ksprintf
+    (if knobs.stat_interface = "" then print_endline else (fun _ -> ()))
+    fmt
+
 (******************************************************************************)
 (******************************************************************************)
 (******************************************************************************)
@@ -221,7 +230,6 @@ let distinct_bits bytes f1 f2 =
         get_distinct_bits byteidx c1 c2 (bitpos+1) acc
   in
   IntSet.fold (fun byteidx acc ->
-    Printf.printf "byte: %d\n" byteidx; flush stdout;
     let c1 = get_char f1 byteidx in
     let c2 = get_char f2 byteidx in
     assert (c1 <> c2);
@@ -289,7 +297,7 @@ let minimize r revert cwd backup posset knobs seed hash filearg mindir =
         if n > maxn then get_random_probs r m n maxn
         else get_discard_probs [] m n
       in
-      Printf.printf "Got (%d) potential probs. m = (%d)\n"
+      outmsg knobs "Got (%d) potential probs. m = (%d)"
         (List.length potential_probs) m; flush stdout;
       let _, disc_chance =
         List.fold_left (fun (maxe,maxp) p ->
@@ -298,12 +306,12 @@ let minimize r revert cwd backup posset knobs seed hash filearg mindir =
           if expectation > maxe then expectation, p else maxe, maxp
         ) (0.0,0.0) potential_probs
       in
-      Printf.printf "Computed new probability.\n"; flush stdout;
+      outmsg knobs "Computed new probability"; flush stdout;
       let allowed_misses =
         (log (1.0 -. confidence)) /. (log (1.0 -. disc_chance))
         |> ceil |> int_of_float
       in
-      Printf.printf "Chance: %f, Allowed misses: %d\n"
+      outmsg knobs "Chance: %f, Allowed misses: %d"
         disc_chance allowed_misses; flush stdout;
       let posset, foundnew =
         try_to_minimize disc_chance allowed_misses posset hash
@@ -319,7 +327,7 @@ let minimize r revert cwd backup posset knobs seed hash filearg mindir =
       let newcrasher, _crashersize, crasherfd = map_writable filearg in
       let num_revert = get_disc_amount (Array.length pos_array) p in
       let () =
-        Printf.printf "Loop(%d): disc_chance(%f), try to revert %d out of %d\n"
+        outmsg knobs "Loop(%d): disc_chance(%f), try to revert %d out of %d"
           loopcnt p num_revert (Array.length pos_array)
       in
       let () = flush stdout in
@@ -359,8 +367,8 @@ let min_start cwd knobs hash mindir filearg =
       IntSet.add pos acc
     ) IntSet.empty byte_positions
   in
-  Printf.printf "Seed size: (%d) bytes, Initial distance: (%d) bytes.\n\
-                 Starting byte minimization.\n"
+  outmsg knobs "Seed size: (%d) bytes, Initial distance: (%d) bytes.\n\
+                 Starting byte minimization."
     seedsize (IntSet.cardinal posset); flush stdout;
   let () = Fastlib.copy knobs.crasher_path backupf in
   let byte_diff =
@@ -370,14 +378,14 @@ let min_start cwd knobs hash mindir filearg =
   let crasher, crashersize = map_file filearg in
   let totalbits = seedsize * 8 in
   let bit_diff = distinct_bits byte_diff seed crasher in
-  Printf.printf "After the minimization, the distance became (%d) byte(s).\n\
+  outmsg knobs "After the minimization, the distance became (%d) byte(s).\n\
                  Seed size: (%d) bit(s), Bit distance: (%d) bit(s).\n\
-                 Starting bit minimization.\n"
+                 Starting bit minimization."
     (IntSet.cardinal byte_diff) totalbits (IntSet.cardinal bit_diff);
   let bit_diff =
     minimize r bit_revert cwd backupf bit_diff knobs seed hash filearg mindir
   in
-  Printf.printf "After the minimization, the distance became (%d) bit(s).\n"
+  outmsg knobs "After the minimization, the distance became (%d) bit(s)."
     (IntSet.cardinal bit_diff);
   let copyto = Filename.concat mindir (Filename.basename knobs.seed_path) in
   let () = Fastlib.copy filearg copyto in
