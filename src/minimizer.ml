@@ -140,7 +140,7 @@ let opt_init () =
     working_dir = get_working_dir ();
     gui = get_gui ();
     exec_timeout = get_exec_timeout ();
-    stat_interface = get_stat_interface ();
+    stat_interface = get_stat_interface () |> to_abs;
   }
 
 let sanitize_knobs knobs =
