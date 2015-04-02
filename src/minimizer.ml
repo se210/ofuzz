@@ -41,13 +41,14 @@ open Filemapper
 
 type knobs =
   {
-    seed_path     : string;
-    crasher_path  : string;
-    cmds          : string list;
-    seed_pos      : int;
-    working_dir   : string;
-    gui           : bool;
-    exec_timeout  : int; (* timeout in seconds *)
+    seed_path      : string;
+    crasher_path   : string;
+    cmds           : string list;
+    seed_pos       : int;
+    working_dir    : string;
+    gui            : bool;
+    exec_timeout   : int; (* timeout in seconds *)
+    stat_interface : string;
   }
 
 let opt_seed_path = StdOpt.str_option ~default:"" ~metavar:"<FILE>" ()
@@ -68,6 +69,9 @@ let get_gui () = Opt.get opt_gui
 
 let opt_exec_timeout = StdOpt.int_option ~default:5 ~metavar:"<SEC>" ()
 let get_exec_timeout () = Opt.get opt_exec_timeout
+
+let opt_stat_interface = StdOpt.str_option ~default:"" ~metavar:"<PATH>" ()
+let get_stat_interface () = Opt.get opt_stat_interface
 
 let opt_debugflag = StdOpt.store_true ()
 let get_debugflag () = Opt.get opt_debugflag
@@ -115,6 +119,11 @@ let opt_init () =
              opt_exec_timeout
   in
   let () = OptParser.add p
+             ~help:"display status"
+             ~long_name:"show-interface"
+             opt_stat_interface
+  in
+  let () = OptParser.add p
              ~help:"debugging mode"
              ~long_name:"debug"
              opt_debugflag
@@ -131,6 +140,7 @@ let opt_init () =
     working_dir = get_working_dir ();
     gui = get_gui ();
     exec_timeout = get_exec_timeout ();
+    stat_interface = get_stat_interface ();
   }
 
 let sanitize_knobs knobs =
@@ -380,20 +390,27 @@ let rec listen_to_client sock =
   init_msg_pipe client;
   listen_to_client sock
 
-let init_domain_socket name =
-  rm_if_exists name;
-  let sock = Unix.socket Unix.PF_UNIX Unix.SOCK_STREAM 0 in
-  Unix.bind sock (Unix.ADDR_UNIX name);
-  Unix.listen sock 1;
-  Sys.set_signal Sys.sigpipe Sys.Signal_ignore;
-  Thread.create listen_to_client sock
+let invoke_interface (name, interface) =
+  Sys.command (interface ^ " " ^ name)
+
+let init_domain_socket knobs name =
+  if knobs.stat_interface = "" then ()
+  else begin
+    rm_if_exists name;
+    let sock = Unix.socket Unix.PF_UNIX Unix.SOCK_STREAM 0 in
+    Unix.bind sock (Unix.ADDR_UNIX name);
+    Unix.listen sock 1;
+    Sys.set_signal Sys.sigpipe Sys.Signal_ignore;
+    ignore (Thread.create invoke_interface (name, knobs.stat_interface));
+    ignore (Thread.create listen_to_client sock)
+  end
 
 let start_minimize knobs =
   let cwd = init_fuzzing_env knobs.working_dir knobs.gui in
   let () = init_triage_script cwd in
   let mindir = Filename.concat cwd "minfiles" in
   let () = cleanup_dir mindir in
-  let _thr = init_domain_socket "/tmp/minimizer.sock" in
+  let () = init_domain_socket knobs "/tmp/minimizer.sock" in
   let () = sanitize_knobs knobs in
   let cmds = knobs.cmds in
   let seedpath = knobs.seed_path in
