@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 # Visualizer for Bug Minimizer
 import socket
 import json
