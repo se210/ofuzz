@@ -6,14 +6,18 @@ import os
 import curses
 
 def main(stdscr):
+	if(len(sys.argv) < 2):
+		print("Socket name is required to run vis.py!")
+		exit(-1)
+
 	stdscr.clear()
 	curses.init_pair(1, curses.COLOR_GREEN, curses.COLOR_BLACK)
 
-	with open('sample.sock','r') as f:
+	with open(sys.argv[1],'r') as f:
 		info = json.load(f)
-	print info
 
 	try:
+		print("Trying to open file %s" % info['filename'])
 		fuzz_file = open(info['filename'],'r')
 		fuzz_file_info = os.stat(info['filename'])
 		fuzz_file_size = fuzz_file_info.st_size
