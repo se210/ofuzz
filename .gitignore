@@ -1,2 +1,8 @@
 conf/.vagrant/
 *.pyc
+
+# Build files
+_build/
+*.native
+src/ofuzzversion.ml
+src/compatibility.ml
