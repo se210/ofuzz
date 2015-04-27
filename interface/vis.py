@@ -81,12 +81,15 @@ def display_mp3(stdscr, phase, info, fuzz_file, fuzz_file_size):
     numFrames = fuzz_file_size / frameSize
     stdscr.addstr(stdscr.getyx()[0]+1,0,"# Total Frames: %d" % numFrames)
 
-    frameHeaders = ['.'] * numFrames
+    bitMode = 1 if phase == 0 else 8
+    frameSize *= 1 if phase == 0 else 8
+
+    frameHeaders = [['.']*4*bitMode for x in xrange(numFrames)]
     frameData = [['.']*10 for x in xrange(numFrames)]
     for b in info['bits']:
         try:
-            if(b % frameSize < 4):
-                frameHeaders[b/frameSize] = 'x'
+            if(b % frameSize < (4*bitMode)):
+                frameHeaders[b/frameSize][b % frameSize] = 'x'
             else:
                 frameData[b/frameSize][(b % frameSize) % 10] = 'x'
         except:
@@ -101,8 +104,8 @@ def display_mp3(stdscr, phase, info, fuzz_file, fuzz_file_size):
             else:
                 xpos = curses.COLS/2
                 stdscr.move(ypos,xpos)
-        if frameHeaders[f] == 'x':
-            stdscr.addstr(stdscr.getyx()[0]+1,xpos,"FrameHeader\t#%d:\tx" % f)
+        if 'x' in frameHeaders[f]:
+            stdscr.addstr(stdscr.getyx()[0]+1,xpos,"FrameHeader\t#%d:\t%s" % (f,''.join(frameHeaders[f])))
         elif 'x' in frameData[f]:
             stdscr.addstr(stdscr.getyx()[0]+1,xpos,"FrameData\t#%d:\t%s" % (f,''.join(frameData[f])))
 
