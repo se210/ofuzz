@@ -131,7 +131,6 @@ def main(stdscr):
     data = ""
     jsonstr = ""
     phase = 0
-    prevNumbits = sys.maxint
     while True:
         # Receive keyboard command
         stdscr.nodelay(1) # non-blocking keyboard input
@@ -165,7 +164,7 @@ def main(stdscr):
             sys.exit(-1)
 
         # Determine current phase
-        if(prevNumbits < info['numbits']):
+        if(info['stage'] == 'bit'):
             phase = 1
 
         stdscr.clear()
@@ -175,7 +174,6 @@ def main(stdscr):
         stdscr.addstr(stdscr.getyx()[0]+1,0,"Current Phase: %s" % phaseStr[phase], curses.color_pair(2))
         stdscr.addstr(stdscr.getyx()[0]+1,0,"File size: %d %s" % (fuzz_file_size if phase == 0 else fuzz_file_size*8, sizeStr[phase]))
         stdscr.addstr(stdscr.getyx()[0]+1,0,"# Candidate %s: %d" % (sizeStr[phase], info['numbits']))
-        prevNumbits = info['numbits']
 
         if (fuzz_file_type == 'audio/mpeg'):
             display_mp3(stdscr, phase, info, fuzz_file, fuzz_file_size)
