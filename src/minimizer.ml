@@ -165,7 +165,7 @@ let sanitize_knobs knobs =
 
 let outfd = ref None
 
-let status_out knobs posset =
+let status_out knobs posset stage =
   let open Yojson.Safe in
   match !outfd with
   | None -> ()
@@ -176,6 +176,7 @@ let status_out knobs posset =
       in
       let json =
         `Assoc [
+                 ("stage", `String stage);
                  ("filename", `String knobs.seed_path);
                  ("numbits", `Int (IntSet.cardinal posset));
                  ("bits", `List lst);
@@ -284,7 +285,7 @@ let byte_revert r seed crasher pos_array num_revert =
     IntSet.add idx acc
   ) set IntSet.empty
 
-let minimize r revert cwd backup posset knobs seed hash filearg mindir =
+let minimize r revert cwd backup posset knobs seed hash filearg mindir st =
   let confidence = 0.999 in
   let n = IntSet.cardinal posset in
   let rec loop minfound m posset =
@@ -348,10 +349,10 @@ let minimize r revert cwd backup posset knobs seed hash filearg mindir =
   and found_smaller posset revertset =
     Fastlib.copy (Filename.concat mindir filearg) backup;
     let newset = IntSet.diff posset revertset in
-    status_out knobs newset;
+    status_out knobs newset st;
     newset, true
   in
-  status_out knobs posset;
+  status_out knobs posset st;
   if n = 1 then posset (* we don't need to do further minimization *)
   else loop false 1 posset
 
@@ -372,7 +373,7 @@ let min_start cwd knobs hash mindir filearg =
     seedsize (IntSet.cardinal posset); flush stdout;
   let () = Fastlib.copy knobs.crasher_path backupf in
   let byte_diff =
-    minimize r byte_revert cwd backupf posset knobs seed hash filearg mindir
+    minimize r byte_revert cwd backupf posset knobs seed hash filearg mindir "byte"
   in
   Fastlib.copy backupf filearg;
   let crasher, crashersize = map_file filearg in
@@ -383,7 +384,7 @@ let min_start cwd knobs hash mindir filearg =
                  Starting bit minimization."
     (IntSet.cardinal byte_diff) totalbits (IntSet.cardinal bit_diff);
   let bit_diff =
-    minimize r bit_revert cwd backupf bit_diff knobs seed hash filearg mindir
+    minimize r bit_revert cwd backupf bit_diff knobs seed hash filearg mindir "bit"
   in
   outmsg knobs "After the minimization, the distance became (%d) bit(s)."
     (IntSet.cardinal bit_diff);
