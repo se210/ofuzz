@@ -145,6 +145,9 @@ def main(stdscr):
         [jsonstr,data] = data.split('}',1)
         info = json.loads(jsonstr+'}')
 
+        if (info['stage'] == 'fin'):
+            break
+
         # Obtain file information
         try:
             fuzz_file = open(info['filename'],'r')
