@@ -388,6 +388,7 @@ let min_start cwd knobs hash mindir filearg =
   in
   outmsg knobs "After the minimization, the distance became (%d) bit(s)."
     (IntSet.cardinal bit_diff);
+  status_out knobs bit_diff "fin";
   let copyto = Filename.concat mindir (Filename.basename knobs.seed_path) in
   let () = Fastlib.copy filearg copyto in
   Printf.eprintf "%s,%d,%d\n"
@@ -403,15 +404,15 @@ let invoke_interface (name, interface) =
   Sys.command (interface ^ " " ^ name)
 
 let init_domain_socket knobs name =
-  if knobs.stat_interface = "" then ()
+  if knobs.stat_interface = "" then None
   else begin
     rm_if_exists name;
     let sock = Unix.socket Unix.PF_UNIX Unix.SOCK_STREAM 0 in
     Unix.bind sock (Unix.ADDR_UNIX name);
     Unix.listen sock 1;
     Sys.set_signal Sys.sigpipe Sys.Signal_ignore;
-    ignore (Thread.create invoke_interface (name, knobs.stat_interface));
-    ignore (Thread.create listen_to_client sock)
+    ignore (Thread.create listen_to_client sock);
+    Some (Thread.create invoke_interface (name, knobs.stat_interface))
   end
 
 let start_minimize knobs =
@@ -419,7 +420,7 @@ let start_minimize knobs =
   let () = init_triage_script cwd in
   let mindir = Filename.concat cwd "minfiles" in
   let () = cleanup_dir mindir in
-  let () = init_domain_socket knobs "/tmp/minimizer.sock" in
+  let sockthr = init_domain_socket knobs "/tmp/minimizer.sock" in
   let () = sanitize_knobs knobs in
   let cmds = knobs.cmds in
   let seedpath = knobs.seed_path in
@@ -431,7 +432,8 @@ let start_minimize knobs =
   match one_run cwd cmds timeout with
   | Some pid ->
       let hash = safe_stack_hash cmds pid timeout false in
-      min_start cwd knobs hash mindir filearg
+      let () = min_start cwd knobs hash mindir filearg in
+      BatOption.map_default Thread.join () sockthr
   | None ->
       Printf.eprintf "%s,unreproducible\n" seedpath
 
