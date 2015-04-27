@@ -3,6 +3,7 @@ conf/.vagrant/
 
 # Build files
 _build/
-*.native
+minimizer
+ofuzz
 src/ofuzzversion.ml
 src/compatibility.ml
