@@ -29,13 +29,13 @@ def display_generic(stdscr, phase, info, fuzz_file_size):
     sizeUnit = ceil_pow10(fuzz_file_size / (20*50) )
     line_counter = 0
     bit_counter = 0
-    for y in range(stdscr.getyx()[0]+1, stdscr.getyx()[0]+21):
+    for y in xrange(stdscr.getyx()[0]+1, stdscr.getyx()[0]+21):
         if (line_counter*sizeUnit*50 >= fuzz_file_size):
             break
         line_str = "%d\t" % (line_counter*sizeUnit*50)
         while bit_counter < (line_counter+1)*sizeUnit*50 and bit_counter < fuzz_file_size:
             bit_char = "."
-            for b in range(bit_counter,bit_counter+sizeUnit):
+            for b in xrange(bit_counter,bit_counter+sizeUnit):
                 if b in info['bits']:
                     bit_char = "x"
             line_str += bit_char
@@ -79,26 +79,32 @@ def display_mp3(stdscr, phase, info, fuzz_file, fuzz_file_size):
     frameDataSize = frameSize - 4
 
     numFrames = fuzz_file_size / frameSize
-    stdscr.addstr(stdscr.getyx()[0]+1,0,"# Frames: %d" % numFrames)
+    stdscr.addstr(stdscr.getyx()[0]+1,0,"# Total Frames: %d" % numFrames)
 
     frameHeaders = ['.'] * numFrames
-    frameData = ['.'] * numFrames
+    frameData = [['.']*10 for x in xrange(numFrames)]
     for b in info['bits']:
         try:
             if(b % frameSize < 4):
                 frameHeaders[b/frameSize] = 'x'
             else:
-                frameData[b/frameSize] = 'x'
+                frameData[b/frameSize][(b % frameSize) % 10] = 'x'
         except:
             pass
 
-    for f in range(numFrames):
+    ypos = stdscr.getyx()[0]
+    xpos = 0
+    for f in xrange(numFrames):
         if stdscr.getyx()[0]+1 >= curses.LINES:
-            break
+            if xpos == curses.COLS/2:
+                break
+            else:
+                xpos = curses.COLS/2
+                stdscr.move(ypos,xpos)
         if frameHeaders[f] == 'x':
-            stdscr.addstr(stdscr.getyx()[0]+1,0,"FrameHeader #%d : x" % f)
-        elif frameData[f] == 'x':
-            stdscr.addstr(stdscr.getyx()[0]+1,0,"FrameData #%d : x" % f)
+            stdscr.addstr(stdscr.getyx()[0]+1,xpos,"FrameHeader\t#%d:\tx" % f)
+        elif 'x' in frameData[f]:
+            stdscr.addstr(stdscr.getyx()[0]+1,xpos,"FrameData\t#%d:\t%s" % (f,''.join(frameData[f])))
 
 def main(stdscr):
     if(len(sys.argv) < 2):
