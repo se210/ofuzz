@@ -30,7 +30,7 @@ def display_generic(stdscr, phase, info, fuzz_file_size):
     line_counter = 0
     bit_counter = 0
     for y in range(stdscr.getyx()[0]+1, stdscr.getyx()[0]+21):
-        if (line_counter*sizeUnit*50 > fuzz_file_size):
+        if (line_counter*sizeUnit*50 >= fuzz_file_size):
             break
         line_str = "%d\t" % (line_counter*sizeUnit*50)
         while bit_counter < (line_counter+1)*sizeUnit*50 and bit_counter < fuzz_file_size:
@@ -39,6 +39,7 @@ def display_generic(stdscr, phase, info, fuzz_file_size):
                 if b in info['bits']:
                     bit_char = "x"
             line_str += bit_char
+            line_str += "|" if (bit_counter/sizeUnit) % 10 == 4 else ""
             line_str += " " if (bit_counter/sizeUnit) % 10 == 9 else ""
             bit_counter += sizeUnit
         stdscr.addstr(y, 0, line_str)
@@ -169,5 +170,5 @@ def main(stdscr):
         else:
             display_generic(stdscr, phase, info, fuzz_file_size)
         stdscr.refresh()
-    
+
 curses.wrapper(main)
