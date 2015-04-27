@@ -75,11 +75,17 @@ Vagrant.configure(2) do |config|
          libgmp-dev libmpfr-dev libmpc-dev \
          libboost-dev libboost-filesystem-dev \
          libmysqlclient18 xvfb x11vnc gdb screen \
+         libncurses5-dev \
          m4 unzip opam
       opam init -y
       eval `opam config env`
       opam update
-      opam install -y ocamlfind yojson camlidl mysql camlbz2 batteries
+      opam install -y ocamlfind yojson camlidl mysql camlbz2 batteries curses
       opam config env >> ~/.bashrc
+      cp -r /ofuzz/data ~
+      sudo apt-get install -y libautotrace3
+      # Visualization Dependencies
+      sudo apt-get install -y python-pip
+      sudo pip install python-magic
     SHELL
 end
