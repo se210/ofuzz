@@ -8,6 +8,9 @@ import curses
 import math
 import magic
 
+phaseStr = ['Byte Minimization','Bit Minimization']
+sizeStr = ['Bytes','Bits']
+
 def bin(str):
     return ''.join(format(ord(x), '08b') for x in str)
 
@@ -20,9 +23,10 @@ def ceil_pow10(x):
     else:
         return int(10**(math.ceil(math.log(x,10))))
 
-def display_generic(stdscr, info, fuzz_file_size):
+def display_generic(stdscr, phase, info, fuzz_file_size):
+    if (phase == 1): # bit minimization mode
+        fuzz_file_size *= 8
     sizeUnit = ceil_pow10(fuzz_file_size / (20*50) )
-    stdscr.addstr(stdscr.getyx()[0]+1,0,"sizeUnit: %d" % sizeUnit)
     line_counter = 0
     bit_counter = 0
     for y in range(stdscr.getyx()[0]+1, stdscr.getyx()[0]+21):
@@ -40,7 +44,7 @@ def display_generic(stdscr, info, fuzz_file_size):
         stdscr.addstr(y, 0, line_str)
         line_counter += 1
 
-def display_mp3(stdscr, info, fuzz_file, fuzz_file_size):
+def display_mp3(stdscr, phase, info, fuzz_file, fuzz_file_size):
     header = bin(fuzz_file.read(4))
 
     frameSync = int(header[0:11],2)
@@ -102,6 +106,7 @@ def main(stdscr):
 
     stdscr.clear()
     curses.init_pair(1, curses.COLOR_GREEN, curses.COLOR_BLACK)
+    curses.init_pair(2, curses.COLOR_RED, curses.COLOR_BLACK)
 
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     try:
@@ -115,6 +120,8 @@ def main(stdscr):
 
     data = ""
     jsonstr = ""
+    phase = 0
+    prevNumbits = sys.maxint
     while True:
         # Receive keyboard command
         stdscr.nodelay(1) # non-blocking keyboard input
@@ -126,8 +133,7 @@ def main(stdscr):
         while('}' not in data):
             data += sock.recv(4096)
         [jsonstr,data] = data.split('}',1)
-        jsonstr += '}'
-        info = json.loads(jsonstr)
+        info = json.loads(jsonstr+'}')
 
         # Obtain file information
         try:
@@ -145,17 +151,23 @@ def main(stdscr):
             print "Unexpected error:", sys.exc_info()[0]
             sys.exit(-1)
 
+        # Determine current phase
+        if(prevNumbits < info['numbits']):
+            phase = 1
+
         stdscr.clear()
         # Print status information
         stdscr.addstr(0,0,"Bug minimization for %s" % info['filename'], curses.color_pair(1))
         stdscr.addstr(stdscr.getyx()[0]+1,0,"File type: %s" % fuzz_file_type, curses.color_pair(1))
-        stdscr.addstr(stdscr.getyx()[0]+1,0,"File size: %d bytes" % fuzz_file_size)
-        stdscr.addstr(stdscr.getyx()[0]+1,0,"# Bits: %d" % info['numbits'])
+        stdscr.addstr(stdscr.getyx()[0]+1,0,"Current Phase: %s" % phaseStr[phase], curses.color_pair(2))
+        stdscr.addstr(stdscr.getyx()[0]+1,0,"File size: %d %s" % (fuzz_file_size if phase == 0 else fuzz_file_size*8, sizeStr[phase]))
+        stdscr.addstr(stdscr.getyx()[0]+1,0,"# Candidate %s: %d" % (sizeStr[phase], info['numbits']))
+        prevNumbits = info['numbits']
 
         if (fuzz_file_type == 'audio/mpeg'):
-            display_mp3(stdscr, info, fuzz_file, fuzz_file_size)
+            display_mp3(stdscr, phase, info, fuzz_file, fuzz_file_size)
         else:
-            display_generic(stdscr, info, fuzz_file_size)
+            display_generic(stdscr, phase, info, fuzz_file_size)
         stdscr.refresh()
     
 curses.wrapper(main)
