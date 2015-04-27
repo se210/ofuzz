@@ -15,7 +15,10 @@ def round_pow10(x):
     return int(10**(math.floor(math.log(2*x,10))))
 
 def ceil_pow10(x):
-    return int(10**(math.ceil(math.log(x,10))))
+    if(x < 10):
+        return 1
+    else:
+        return int(10**(math.ceil(math.log(x,10))))
 
 def display_generic(stdscr, info, fuzz_file_size):
     sizeUnit = ceil_pow10(fuzz_file_size / (20*50) )
